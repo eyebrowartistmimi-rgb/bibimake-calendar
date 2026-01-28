@@ -30,6 +30,7 @@ const INSTRUCTORS = [
   { name: 'あやか', emoji: '🍑' },
   { name: 'ふみ', emoji: '🍺' },
   { name: 'みみ', emoji: '🦁' },
+  { name: 'ゆかり', emoji: '🍏' },
 ];
 
 const app = initializeApp(firebaseConfig);
