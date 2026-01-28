@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { ChevronLeft, ChevronRight, Plus, X, Calendar, LogIn, LogOut, Eye, Edit3, Trash2, Clock, MapPin, ExternalLink, Loader2, Lock } from 'lucide-react';
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch } from 'firebase/firestore';
+import { ChevronLeft, ChevronRight, Plus, X, Calendar, LogIn, LogOut, Eye, Edit3, Trash2, Clock, MapPin, ExternalLink, Loader2, Lock, Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 
 // Firebase設定
 const firebaseConfig = {
@@ -32,7 +32,6 @@ function LoginModal({ onClose, onLogin }) {
     setLoading(true);
     setError('');
     
-    // パスワード確認
     setTimeout(() => {
       if (password === STAFF_PASSWORD) {
         onLogin({ displayName: 'スタッフ', isAdmin: true });
@@ -90,6 +89,199 @@ function LoginModal({ onClose, onLogin }) {
             )}
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function CSVImportModal({ onClose, onImport }) {
+  const [csvData, setCsvData] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const parseCSV = (text) => {
+    const lines = text.trim().split(/\r?\n/);
+    const headers = lines[0].split(',');
+    const data = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',');
+      // Skip header row in Japanese
+      if (values[0] === 'タイトル') continue;
+      
+      const row = {};
+      headers.forEach((header, index) => {
+        row[header.trim()] = values[index]?.trim() || '';
+      });
+      
+      // Validate required fields
+      if (row.title && row.date && row.time) {
+        // Fix endTime format (remove seconds if present)
+        if (row.endTime && row.endTime.length > 5) {
+          row.endTime = row.endTime.substring(0, 5);
+        }
+        // Convert isPublic to boolean
+        row.isPublic = row.isPublic === 'TRUE' || row.isPublic === 'true';
+        data.push(row);
+      }
+    }
+    return data;
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const parsed = parseCSV(text);
+      setCsvData(parsed);
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const handleImport = async () => {
+    if (csvData.length === 0) return;
+    
+    setImporting(true);
+    try {
+      let successCount = 0;
+      
+      // Add events in batches
+      for (const event of csvData) {
+        await addDoc(collection(db, 'events'), {
+          title: event.title,
+          date: event.date,
+          time: event.time,
+          endTime: event.endTime || '17:00',
+          location: event.location || '',
+          instructor: event.instructor || '',
+          description: event.description || '',
+          bookingUrl: event.bookingUrl || '',
+          isPublic: event.isPublic,
+          createdAt: new Date().toISOString()
+        });
+        successCount++;
+      }
+      
+      setResult({ success: true, count: successCount });
+      setTimeout(() => {
+        onImport();
+        onClose();
+      }, 2000);
+    } catch (error) {
+      console.error('Import error:', error);
+      setResult({ success: false, error: error.message });
+    }
+    setImporting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div className="p-5 text-white relative bg-gradient-to-r from-green-500 to-teal-500 rounded-t-2xl">
+          <button onClick={onClose} className="absolute top-3 right-3 p-2 hover:bg-white/20 rounded-full">
+            <X className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+              <FileSpreadsheet className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">CSV一括登録</h2>
+              <p className="text-green-100 text-sm">スプレッドシートから一括インポート</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-5 space-y-4">
+          {result ? (
+            <div className={`p-4 rounded-xl ${result.success ? 'bg-green-50' : 'bg-red-50'}`}>
+              <div className="flex items-center gap-3">
+                {result.success ? (
+                  <>
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                    <div>
+                      <div className="font-bold text-green-700">登録完了！</div>
+                      <div className="text-green-600">{result.count}件の予定を登録しました</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-8 h-8 text-red-500" />
+                    <div>
+                      <div className="font-bold text-red-700">エラー</div>
+                      <div className="text-red-600">{result.error}</div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-pink-400 hover:bg-pink-50 transition-colors"
+              >
+                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600 font-medium">CSVファイルをクリックして選択</p>
+                <p className="text-gray-400 text-sm mt-1">またはドラッグ＆ドロップ</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </div>
+              
+              {csvData.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="font-bold text-gray-800 mb-2">
+                    📋 {csvData.length}件の予定を検出
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    {csvData.slice(0, 5).map((item, i) => (
+                      <div key={i} className="bg-white p-2 rounded-lg text-sm">
+                        <span className="font-medium">{item.date}</span>
+                        <span className="mx-2 text-gray-400">|</span>
+                        <span>{item.title}</span>
+                        <span className="mx-2 text-gray-400">|</span>
+                        <span className="text-gray-500">{item.instructor}</span>
+                      </div>
+                    ))}
+                    {csvData.length > 5 && (
+                      <div className="text-gray-500 text-sm text-center">
+                        ...他 {csvData.length - 5}件
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        
+        {!result && (
+          <div className="p-4 border-t flex gap-2">
+            <button onClick={onClose} className="flex-1 py-3 text-gray-600 hover:bg-gray-100 rounded-xl">
+              キャンセル
+            </button>
+            <button 
+              onClick={handleImport} 
+              disabled={csvData.length === 0 || importing}
+              className="flex-1 py-3 bg-green-500 disabled:bg-gray-300 text-white rounded-xl font-medium flex items-center justify-center gap-2"
+            >
+              {importing ? (
+                <><Loader2 className="w-5 h-5 animate-spin" />登録中...</>
+              ) : (
+                <><Upload className="w-5 h-5" />{csvData.length}件を登録</>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -272,6 +464,7 @@ function EventEditModal({ event, onClose, onSave, saving }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -283,7 +476,6 @@ export default function App() {
   
   const isAdmin = user?.isAdmin;
   
-  // Firestoreからリアルタイムでデータ取得
   useEffect(() => {
     const q = query(collection(db, 'events'), orderBy('date', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -311,7 +503,6 @@ export default function App() {
     return days;
   };
   
-  // Firebase保存
   const handleSave = async (form) => {
     setSaving(true);
     try {
@@ -329,7 +520,6 @@ export default function App() {
     setSaving(false);
   };
   
-  // Firebase削除
   const handleDelete = async (id) => {
     if (!confirm('この予定を削除しますか？')) return;
     try {
@@ -363,7 +553,7 @@ export default function App() {
         onSignOut={() => setUser(null)} 
       />
       <main className="max-w-4xl mx-auto px-4 py-4">
-        <div className="bg-white rounded-xl shadow-sm border p-3 mb-4 flex items-center justify-between">
+        <div className="bg-white rounded-xl shadow-sm border p-3 mb-4 flex items-center justify-between flex-wrap gap-2">
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-lg text-sm font-medium ${view === 'calendar' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-600'}`}>
               <Calendar className="w-4 h-4 inline mr-1" />カレンダー
@@ -373,9 +563,14 @@ export default function App() {
             </button>
           </div>
           {isAdmin && (
-            <button onClick={() => openEdit()} className="flex items-center gap-2 bg-pink-500 text-white px-4 py-2 rounded-lg font-medium shadow">
-              <Plus className="w-5 h-5" />予定を追加
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 bg-green-500 text-white px-3 py-2 rounded-lg font-medium shadow text-sm">
+                <FileSpreadsheet className="w-4 h-4" />CSV一括登録
+              </button>
+              <button onClick={() => openEdit()} className="flex items-center gap-2 bg-pink-500 text-white px-3 py-2 rounded-lg font-medium shadow text-sm">
+                <Plus className="w-4 h-4" />予定を追加
+              </button>
+            </div>
           )}
         </div>
         
@@ -438,6 +633,12 @@ export default function App() {
         <LoginModal 
           onClose={() => setShowLoginModal(false)} 
           onLogin={(userData) => setUser(userData)} 
+        />
+      )}
+      {showImportModal && (
+        <CSVImportModal
+          onClose={() => setShowImportModal(false)}
+          onImport={() => {}}
         />
       )}
       {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} isAdmin={isAdmin} onEdit={openEdit} onDelete={handleDelete} />}
