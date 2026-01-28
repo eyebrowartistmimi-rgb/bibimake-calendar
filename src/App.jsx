@@ -29,6 +29,7 @@ const INSTRUCTORS = [
   { name: 'りょうこ', emoji: '👓' },
   { name: 'あやか', emoji: '🍑' },
   { name: 'ふみ', emoji: '🍺' },
+  { name: 'みみ', emoji: '🦁' },
 ];
 
 const app = initializeApp(firebaseConfig);
@@ -587,17 +588,6 @@ export default function App() {
   
   const openEdit = (e = null) => { setEditingEvent(e); setEditModal(true); setSelectedEvent(null); };
   const upcoming = visibleEvents.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date));
-
-  // 講師名から絵文字を取得
-  const getInstructorEmoji = (instructorName) => {
-    if (!instructorName) return '';
-    for (const inst of INSTRUCTORS) {
-      if (instructorName.includes(inst.name)) {
-        return inst.emoji;
-      }
-    }
-    return '';
-  };
 
   if (loading) {
     return (
