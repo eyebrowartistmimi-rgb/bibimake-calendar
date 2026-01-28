@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { ChevronLeft, ChevronRight, Plus, X, Calendar, LogIn, LogOut, Eye, Edit3, Trash2, Clock, MapPin, ExternalLink, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Calendar, LogIn, LogOut, Eye, Edit3, Trash2, Clock, MapPin, ExternalLink, Loader2, Lock } from 'lucide-react';
 
 // Firebase設定
 const firebaseConfig = {
@@ -14,10 +14,86 @@ const firebaseConfig = {
   measurementId: "G-45MF3SN1QC"
 };
 
+// スタッフパスワード
+const STAFF_PASSWORD = "bibimake2026";
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const APP_CONFIG = { schoolName: 'BIBIMAKE', tagline: 'アートメイクスクール' };
+
+function LoginModal({ onClose, onLogin }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    // パスワード確認
+    setTimeout(() => {
+      if (password === STAFF_PASSWORD) {
+        onLogin({ displayName: 'スタッフ', isAdmin: true });
+        onClose();
+      } else {
+        setError('パスワードが正しくありません');
+      }
+      setLoading(false);
+    }, 500);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
+        <div className="p-5 text-white relative bg-gradient-to-r from-pink-500 to-purple-500 rounded-t-2xl">
+          <button onClick={onClose} className="absolute top-3 right-3 p-2 hover:bg-white/20 rounded-full">
+            <X className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+              <Lock className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">スタッフログイン</h2>
+              <p className="text-pink-100 text-sm">管理者専用</p>
+            </div>
+          </div>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">パスワード</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+              placeholder="パスワードを入力"
+              autoFocus
+            />
+          </div>
+          {error && (
+            <div className="text-red-500 text-sm bg-red-50 p-3 rounded-xl">
+              {error}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={!password || loading}
+            className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <><Loader2 className="w-5 h-5 animate-spin" />確認中...</>
+            ) : (
+              <><LogIn className="w-5 h-5" />ログイン</>
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function Header({ user, onSignIn, onSignOut }) {
   return (
@@ -37,7 +113,9 @@ function Header({ user, onSignIn, onSignOut }) {
               <span className="text-sm">{user.displayName}</span>
               <span className="bg-yellow-400 text-yellow-900 text-xs px-1.5 py-0.5 rounded-full font-bold">管理者</span>
             </div>
-            <button onClick={onSignOut} className="p-2 hover:bg-white/20 rounded-full"><LogOut className="w-4 h-4" /></button>
+            <button onClick={onSignOut} className="p-2 hover:bg-white/20 rounded-full" title="ログアウト">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         ) : (
           <button onClick={onSignIn} className="flex items-center gap-2 bg-white text-pink-600 px-3 py-1.5 rounded-full text-sm font-medium hover:bg-pink-50 shadow">
@@ -193,6 +271,7 @@ function EventEditModal({ event, onClose, onSave, saving }) {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -278,7 +357,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={user} onSignIn={() => setUser({ displayName: 'MIMI', isAdmin: true })} onSignOut={() => setUser(null)} />
+      <Header 
+        user={user} 
+        onSignIn={() => setShowLoginModal(true)} 
+        onSignOut={() => setUser(null)} 
+      />
       <main className="max-w-4xl mx-auto px-4 py-4">
         <div className="bg-white rounded-xl shadow-sm border p-3 mb-4 flex items-center justify-between">
           <div className="flex bg-gray-100 rounded-lg p-1">
@@ -351,6 +434,12 @@ export default function App() {
         )}
       </main>
       
+      {showLoginModal && (
+        <LoginModal 
+          onClose={() => setShowLoginModal(false)} 
+          onLogin={(userData) => setUser(userData)} 
+        />
+      )}
       {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} isAdmin={isAdmin} onEdit={openEdit} onDelete={handleDelete} />}
       {editModal && <EventEditModal event={editingEvent} onClose={() => { setEditModal(false); setEditingEvent(null); }} onSave={handleSave} saving={saving} />}
       
