@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch } from 'firebase/firestore';
-import { ChevronLeft, ChevronRight, Plus, X, Calendar, LogIn, LogOut, Eye, Edit3, Trash2, Clock, MapPin, ExternalLink, Loader2, Lock, Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { ChevronLeft, ChevronRight, Plus, X, Calendar, LogIn, LogOut, Eye, Edit3, Trash2, Clock, MapPin, ExternalLink, Loader2, Lock, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Users } from 'lucide-react';
 
 // Firebase設定
 const firebaseConfig = {
@@ -16,6 +16,20 @@ const firebaseConfig = {
 
 // スタッフパスワード
 const STAFF_PASSWORD = "bibimake2026";
+
+// 講師リスト（固定）
+const INSTRUCTORS = [
+  { name: 'みく', emoji: '🐼' },
+  { name: 'ちか', emoji: '🍋' },
+  { name: '萌', emoji: '🐪' },
+  { name: 'さき', emoji: '🐶' },
+  { name: 'けいこ', emoji: '🐱' },
+  { name: 'えり', emoji: '🍓' },
+  { name: 'あみ', emoji: '🚗' },
+  { name: 'りょうこ', emoji: '👓' },
+  { name: 'あやか', emoji: '🍑' },
+  { name: 'ふみ', emoji: '🍺' },
+];
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -107,7 +121,6 @@ function CSVImportModal({ onClose, onImport }) {
     
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',');
-      // Skip header row in Japanese
       if (values[0] === 'タイトル') continue;
       
       const row = {};
@@ -115,13 +128,10 @@ function CSVImportModal({ onClose, onImport }) {
         row[header.trim()] = values[index]?.trim() || '';
       });
       
-      // Validate required fields
       if (row.title && row.date && row.time) {
-        // Fix endTime format (remove seconds if present)
         if (row.endTime && row.endTime.length > 5) {
           row.endTime = row.endTime.substring(0, 5);
         }
-        // Convert isPublic to boolean
         row.isPublic = row.isPublic === 'TRUE' || row.isPublic === 'true';
         data.push(row);
       }
@@ -149,7 +159,6 @@ function CSVImportModal({ onClose, onImport }) {
     try {
       let successCount = 0;
       
-      // Add events in batches
       for (const event of csvData) {
         await addDoc(collection(db, 'events'), {
           title: event.title,
@@ -319,6 +328,42 @@ function Header({ user, onSignIn, onSignOut }) {
   );
 }
 
+function InstructorFilter({ selected, onChange }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Users className="w-4 h-4 text-gray-500" />
+        <span className="text-sm font-medium text-gray-600">講師で絞り込み</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => onChange(null)}
+          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            selected === null 
+              ? 'bg-pink-500 text-white' 
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          すべて
+        </button>
+        {INSTRUCTORS.map(instructor => (
+          <button
+            key={instructor.name}
+            onClick={() => onChange(instructor.name)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              selected === instructor.name 
+                ? 'bg-pink-500 text-white' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {instructor.emoji} {instructor.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EventDetailModal({ event, onClose, isAdmin, onEdit, onDelete }) {
   if (!event) return null;
   return (
@@ -390,7 +435,7 @@ function EventEditModal({ event, onClose, onSave, saving }) {
     time: event?.time || '10:00',
     endTime: event?.endTime || '17:00',
     location: event?.location || '',
-    instructor: event?.instructor || 'MIMI先生',
+    instructor: event?.instructor || '',
     description: event?.description || '',
     bookingUrl: event?.bookingUrl || '',
     isPublic: event?.isPublic ?? true
@@ -406,7 +451,7 @@ function EventEditModal({ event, onClose, onSave, saving }) {
         <div className="p-4 space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">タイトル *</label>
-            <input value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-4 py-3 border rounded-xl" placeholder="【初級】眉アートメイク基礎講座" />
+            <input value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-4 py-3 border rounded-xl" placeholder="東京オフィス" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
@@ -429,7 +474,7 @@ function EventEditModal({ event, onClose, onSave, saving }) {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">講師</label>
-              <input value={form.instructor} onChange={e => setForm({...form, instructor: e.target.value})} className="w-full px-4 py-3 border rounded-xl" />
+              <input value={form.instructor} onChange={e => setForm({...form, instructor: e.target.value})} className="w-full px-4 py-3 border rounded-xl" placeholder="けいこ・みく" />
             </div>
           </div>
           <div>
@@ -473,6 +518,7 @@ export default function App() {
   const [editModal, setEditModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [view, setView] = useState('calendar');
+  const [selectedInstructor, setSelectedInstructor] = useState(null);
   
   const isAdmin = user?.isAdmin;
   
@@ -489,7 +535,15 @@ export default function App() {
     return () => unsubscribe();
   }, []);
   
-  const visibleEvents = events.filter(e => isAdmin || e.isPublic);
+  // フィルタリング（講師名が含まれているかチェック）
+  const visibleEvents = useMemo(() => {
+    let filtered = events.filter(e => isAdmin || e.isPublic);
+    if (selectedInstructor) {
+      filtered = filtered.filter(e => e.instructor && e.instructor.includes(selectedInstructor));
+    }
+    return filtered;
+  }, [events, isAdmin, selectedInstructor]);
+  
   const formatDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const today = formatDate(new Date());
   
@@ -534,6 +588,17 @@ export default function App() {
   const openEdit = (e = null) => { setEditingEvent(e); setEditModal(true); setSelectedEvent(null); };
   const upcoming = visibleEvents.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date));
 
+  // 講師名から絵文字を取得
+  const getInstructorEmoji = (instructorName) => {
+    if (!instructorName) return '';
+    for (const inst of INSTRUCTORS) {
+      if (instructorName.includes(inst.name)) {
+        return inst.emoji;
+      }
+    }
+    return '';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -573,6 +638,12 @@ export default function App() {
             </div>
           )}
         </div>
+        
+        {/* 講師フィルター */}
+        <InstructorFilter 
+          selected={selectedInstructor} 
+          onChange={setSelectedInstructor} 
+        />
         
         {view === 'calendar' ? (
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -614,10 +685,18 @@ export default function App() {
           </div>
         ) : (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold">今後の予定</h2>
+            <h2 className="text-xl font-bold">
+              今後の予定
+              {selectedInstructor && <span className="text-pink-500 ml-2">（{selectedInstructor}）</span>}
+            </h2>
             {upcoming.length ? upcoming.map(e => (
               <div key={e.id} onClick={() => setSelectedEvent(e)} className="bg-white rounded-xl shadow-sm border p-4 cursor-pointer hover:shadow-md">
-                <div className="text-sm text-gray-500 mb-1">{new Date(e.date).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'long' })}</div>
+                <div className="flex justify-between items-start">
+                  <div className="text-sm text-gray-500 mb-1">{new Date(e.date).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'long' })}</div>
+                  {e.instructor && (
+                    <span className="bg-pink-100 text-pink-600 text-xs px-2 py-1 rounded-full">{e.instructor}</span>
+                  )}
+                </div>
                 <h3 className="font-bold text-gray-800">{e.title}</h3>
                 <div className="flex gap-3 mt-2 text-sm text-gray-500">
                   <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{e.time}</span>
@@ -646,7 +725,7 @@ export default function App() {
       
       <footer className="bg-white border-t mt-8 py-6 text-center text-sm text-gray-500">
         © 2026 {APP_CONFIG.schoolName}<br />
-        <span className="text-pink-500">{isAdmin ? '✓ 管理者モード（データはFirebaseに保存されます）' : '生徒用閲覧モード'}</span>
+        <span className="text-pink-500">{isAdmin ? '✓ 管理者モード' : '生徒用閲覧モード'}</span>
       </footer>
     </div>
   );
