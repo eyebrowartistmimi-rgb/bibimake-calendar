@@ -33,6 +33,25 @@ const INSTRUCTORS = [
   { name: 'ゆかり', emoji: '🍏' },
 ];
 
+// クリニック色設定
+const CLINIC_COLORS = {
+  '東京': 'bg-pink-500',
+  '大阪': 'bg-blue-500',
+  '福岡': 'bg-green-500',
+  '新宿': 'bg-yellow-500',
+  '横浜': 'bg-purple-500',
+};
+
+// クリニック名から色を取得
+const getClinicColor = (title) => {
+  for (const [clinic, color] of Object.entries(CLINIC_COLORS)) {
+    if (title && title.includes(clinic)) {
+      return color;
+    }
+  }
+  return 'bg-pink-500'; // デフォルト
+};
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -659,15 +678,15 @@ export default function App() {
                 const isToday = ds === today;
                 const dow = day.date.getDay();
                 return (
-                  <div key={i} className={`min-h-[90px] border-b border-r border-gray-100 p-1.5 ${!day.curr ? 'bg-gray-50' : ''}`}>
+                  <div key={i} className={`min-h-[140px] border-b border-r border-gray-100 p-1.5 ${!day.curr ? 'bg-gray-50' : ''}`}>
                     <span className={`inline-flex items-center justify-center w-7 h-7 text-sm rounded-full ${isToday ? 'bg-pink-500 text-white font-bold' : !day.curr ? 'text-gray-300' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : ''}`}>
                       {day.date.getDate()}
                     </span>
-                    <div className="mt-1 space-y-1">
-                      {evts.slice(0,2).map(e => (
-                        <div key={e.id} onClick={() => setSelectedEvent(e)} className="text-xs px-1.5 py-1 rounded bg-pink-500 text-white truncate cursor-pointer">{e.title}</div>
+                    <div className="mt-1 space-y-0.5">
+                      {evts.slice(0,5).map(e => (
+                        <div key={e.id} onClick={() => setSelectedEvent(e)} className={`text-xs px-1.5 py-0.5 rounded ${getClinicColor(e.title)} text-white truncate cursor-pointer`}>{e.title}</div>
                       ))}
-                      {evts.length > 2 && <div className="text-xs text-gray-500">+{evts.length-2}件</div>}
+                      {evts.length > 5 && <div className="text-xs text-gray-500">+{evts.length-5}件</div>}
                     </div>
                   </div>
                 );
