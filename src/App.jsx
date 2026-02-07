@@ -36,11 +36,14 @@ const INSTRUCTORS = [
 // クリニック色設定
 const CLINIC_COLORS = {
   '東京': 'bg-pink-500',
-  '大阪': 'bg-blue-500',
-  '福岡': 'bg-green-500',
   '新宿': 'bg-yellow-500',
   '横浜': 'bg-purple-500',
+  '大阪': 'bg-blue-500',
+  '福岡': 'bg-green-500',
 };
+
+// クリニック並び順
+const CLINIC_ORDER = ['東京', '新宿', '横浜', '大阪', '福岡'];
 
 // クリニック名から色を取得
 const getClinicColor = (title) => {
@@ -50,6 +53,16 @@ const getClinicColor = (title) => {
     }
   }
   return 'bg-pink-500'; // デフォルト
+};
+
+// クリニック名から並び順を取得
+const getClinicOrder = (title) => {
+  for (let i = 0; i < CLINIC_ORDER.length; i++) {
+    if (title && title.includes(CLINIC_ORDER[i])) {
+      return i;
+    }
+  }
+  return 999; // デフォルト（最後）
 };
 
 const app = initializeApp(firebaseConfig);
@@ -674,7 +687,7 @@ export default function App() {
             <div className="grid grid-cols-7">
               {getDays().map((day, i) => {
                 const ds = formatDate(day.date);
-                const evts = visibleEvents.filter(e => e.date === ds);
+                                const evts = visibleEvents.filter(e => e.date === ds).sort((a, b) => getClinicOrder(a.title) - getClinicOrder(b.title));
                 const isToday = ds === today;
                 const dow = day.date.getDay();
                 return (
