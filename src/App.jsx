@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, X, Calendar, LogIn, LogOut, Eye, Edit3
 const firebaseConfig = {
   apiKey: "AIzaSyCHviRdosjHVKt8GtPFH81dDxyQpUobwPU",
   authDomain: "bibimake-calendar.firebaseapp.com",
-  projectId: "bibimake-calendar"
+  projectId: "bibimake-calendar",
   storageBucket: "bibimake-calendar.firebasestorage.app",
   messagingSenderId: "1074387971682",
   appId: "1:1074387971682:web:3776ce2b317656d639eb3b",
@@ -21,7 +21,7 @@ const STAFF_PASSWORD = "bibimake2026";
 const INSTRUCTORS = [
   { name: 'みく', emoji: '🐼' },
   { name: 'ちか', emoji: '🍋' },
-  { name: '萌', emoji: '🐪' },
+  { name: 'もえ', emoji: '🐪' },
   { name: 'さき', emoji: '🐶' },
   { name: 'けいこ', emoji: '🐱' },
   { name: 'えり', emoji: '🍓' },
@@ -52,7 +52,7 @@ const getClinicColor = (title) => {
       return color;
     }
   }
-  return 'bg-pink-500'; // デフォルト
+  return 'bg-pink-500';
 };
 
 // クリニック名から並び順を取得
@@ -62,7 +62,7 @@ const getClinicOrder = (title) => {
       return i;
     }
   }
-  return 999; // デフォルト（最後）
+  return 999;
 };
 
 const app = initializeApp(firebaseConfig);
@@ -432,14 +432,14 @@ function EventDetailModal({ event, onClose, isAdmin, onEdit, onDelete }) {
             </div>
           )}
           {!isAdmin && event.bookingUrl && (
-            <a href="https://line.me/R/oaMessage/@053vjqgl/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-xl font-bold text-lg">
+            <a href={event.bookingUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-xl font-bold text-lg">
               <ExternalLink className="w-5 h-5" />予約する
             </a>
           )}
           {isAdmin && event.bookingUrl && (
             <div className="bg-blue-50 rounded-xl p-4">
               <div className="text-xs text-blue-600 mb-1">予約リンク</div>
-              <a href="https://line.me/R/oaMessage/@053vjqgl/" target="_blank" className="text-blue-600 text-sm underline break-all">{event.bookingUrl}</a>
+              <a href={event.bookingUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm underline break-all">{event.bookingUrl}</a>
             </div>
           )}
         </div>
@@ -687,7 +687,7 @@ export default function App() {
             <div className="grid grid-cols-7">
               {getDays().map((day, i) => {
                 const ds = formatDate(day.date);
-                                const evts = visibleEvents.filter(e => e.date === ds).sort((a, b) => getClinicOrder(a.title) - getClinicOrder(b.title));
+                const evts = visibleEvents.filter(e => e.date === ds).sort((a, b) => getClinicOrder(a.title) - getClinicOrder(b.title));
                 const isToday = ds === today;
                 const dow = day.date.getDay();
                 return (
